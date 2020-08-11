@@ -13,7 +13,7 @@ contract LotterieFactory {
     
     // Crear una nueva loteria y añadir la dirección
     function createLottery( uint _maxPart, uint _precioParti, uint _boteRec, uint _premio) public{
-        Loteria newLottery = new Loteria( _maxPart,  _precioParti,  _boteRec,  _premio);
+        Loteria newLottery = new Loteria( msg.sender, _maxPart,  _precioParti,  _boteRec,  _premio);
         lotterieStorage.addLotterie(address(newLottery));
     }
     
@@ -43,22 +43,19 @@ contract LotterieFactory {
     // Añadir participante a una Loteria
     function addParticipant(address lotteryAddress) public payable{
         Loteria lottery = Loteria(lotteryAddress);
-        lottery.participar.value(msg.value);
+        lottery.participar.value(msg.value)(msg.sender);
     }
     
     // Retirar participación
     function withdrawParticipation(address lotteryAddress) public payable{
         Loteria lottery = Loteria(lotteryAddress);
-        lottery.reclamar();
+        lottery.reclamar(msg.sender);
     }
     
     // Rifar la Loteria
     function raffle(address lotteryAddress) public payable{
         Loteria lottery = Loteria(lotteryAddress);
-        lottery.sortear();
+        lottery.sortear(msg.sender);
     }
     
 }
-
-
-
