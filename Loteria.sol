@@ -37,10 +37,10 @@ contract Loteria {
     event LotteryTerminated(address _loteria, address _ganador);
     
     // Creacion de la Loteria
-    constructor (uint _maxPart, uint _precioParti, uint _boteRec, uint _premio) public{
+    constructor (address payable _creador, uint _maxPart, uint _precioParti, uint _boteRec, uint _premio) public{
     require((_premio < _maxPart*_precioParti || _premio < _boteRec) && _maxPart > 0 && _precioParti > 0 && _boteRec > 0 && _premio > 0, 'Parametros invalidos. El premio debe ser menor que el bote a recaudar y los parametros positivos.'); // COndicion de control
         loteriaDir = address(this);
-        creador = tx.origin;
+        creador = _creador;
         maxPart = _maxPart;
         precioParti = _precioParti;
         boteRec = _boteRec;
@@ -51,24 +51,19 @@ contract Loteria {
         emit LotteryActive(creador, loteriaDir);
     }
     
-    // Modificadores 
-    modifier condition(bool _condition) {
-        require(_condition);
-        _;
-    }
     
-    modifier soloCreador() {
-        require(tx.origin == creador, 'Solo el creador de la loteria puede acceder a esta funcíión.');
+    modifier soloCreador(address payable dir) {
+        require(dir == creador, 'Solo el creador de la loteria puede acceder a esta funcíión.');
         _;
     }
 
-    modifier soloParticipanteNuevo() {
-        require(Participantes[tx.origin].participa == false, 'Solo se admiten nuevos participantes.');
+    modifier soloParticipanteNuevo(address payable dir) {
+        require(!Participantes[dir].participa, 'Solo se admiten nuevos participantes.');
         _;
     }
     
-    modifier soloParticipanteExistente() {
-        require(Participantes[tx.origin].participa == true, 'Usted no puede reclamar o ya ha reclamado.');
+    modifier soloParticipanteExistente(address payable dir) {
+        require(!Participantes[dir].participa, 'Usted no puede reclamar o ya ha reclamado.');
         _;
     }
 
@@ -78,14 +73,14 @@ contract Loteria {
     }
     
     // Participar en la loteria
-    function  participar() soloParticipanteNuevo inState(Estado.Activa) public payable {
+    function  participar(address payable _participante) soloParticipanteNuevo(_participante) inState(Estado.Activa) public payable {
         // Si las condiciones se cumplen añado al participante y modifico el estado de la loteria
         require(msg.value == precioParti,'Fondos insuficientes');
-        participantes.push(tx.origin);
+        participantes.push(_participante);
         partiAct ++;
         boteAct += precioParti;
-        Participantes[tx.origin].balance = precioParti;
-        Participantes[tx.origin].participa = true;
+        Participantes[_participante].balance = precioParti;
+        Participantes[_participante].participa = true;
         // Control del estado de la loteria tras añadir un participante
         // Si se ha alcanzado el numero maximo de participantes pero no se ha llegado al bote a recaudar
         if (partiAct == maxPart && boteAct < boteRec) {
@@ -106,7 +101,7 @@ contract Loteria {
    }
     
     // Sortear la Loteria
-    function sortear() soloCreador inState(Estado.Finalizada) public payable{
+    function sortear(address payable _creador) soloCreador(_creador) inState(Estado.Finalizada) public payable{
         estado = Estado.Terminada;
         uint8 randomNum = random();
         ganador = participantes[randomNum];
@@ -116,14 +111,14 @@ contract Loteria {
     }
     
     // Reclamar participacion 
-    function reclamar() soloParticipanteExistente inState(Estado.Fallida) public payable {
+    function reclamar(address payable _participante) soloParticipanteExistente(_participante) inState(Estado.Fallida) public payable {
         // Usando el patron ChecksEffectsInteractions
         // Primero chequeo
-        require(Participantes[tx.origin].balance >= precioParti);
+        require(Participantes[_participante].balance >= precioParti);
         // Efecto positivo anticipado
-        Participantes[tx.origin].balance -= precioParti;
+        Participantes[_participante].balance -= precioParti;
         // Por ultimo interaccion
-        tx.origin.transfer(precioParti);
+        _participante.transfer(precioParti);
         partiAct --;
     }
     
