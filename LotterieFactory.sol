@@ -3,6 +3,14 @@ pragma solidity ^0.5.11;
 import './Loteria.sol';
 import './LotterieStorage.sol';
 
+/**
+* @title lotterieFactory
+* @dev El contrato lotterieFactory implementa la parte de la funcionalidadd del servicio de loterias
+* Sus funciones permiten crear nuevas loterias, asi como llamar a un contrato de lo teria existente 
+* para añadir  participantes, reclamar y sortar las loterias.
+* Ademas implementa funciones para obtener informacion de las mismas.
+*/
+
 contract LotterieFactory {
    
    LotterieStorage public lotterieStorage;
@@ -58,4 +66,8 @@ contract LotterieFactory {
         lottery.sortear(msg.sender);
     }
     
+    // Fallback function
+    function() external payable{
+        require(msg.value == 0, 'Este contrato no acepta Ether');
+    }
 }
