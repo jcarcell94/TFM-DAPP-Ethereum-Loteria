@@ -31,6 +31,8 @@ contract Loteria {
     
     
     // Eventos
+    event NewParticipant(address _loteria, address _participante);
+    event LotteryWithdraw(address _loteria, address _participante);
     event LotteryActive(address _creador, address _loteria);
     event LotteryFailed(address _loteria);
     event LotteryFinished(address _loteria);
@@ -58,12 +60,12 @@ contract Loteria {
     }
 
     modifier soloParticipanteNuevo(address payable dir) {
-        require(!Participantes[dir].participa, 'Solo se admiten nuevos participantes.');
+        require(!Participantes[dir].participa, 'Solo participantes nueevos.');
         _;
     }
     
     modifier soloParticipanteExistente(address payable dir) {
-        require(!Participantes[dir].participa, 'Usted no puede reclamar o ya ha reclamado.');
+        require(Participantes[dir].participa, 'Usted no puede reclamar o ya ha reclamado.');
         _;
     }
 
@@ -74,13 +76,15 @@ contract Loteria {
     
     // Participar en la loteria
     function  participar(address payable _participante) soloParticipanteNuevo(_participante) inState(Estado.Activa) public payable {
+        
         // Si las condiciones se cumplen añado al participante y modifico el estado de la loteria
         require(msg.value == precioParti,'Fondos insuficientes');
         participantes.push(_participante);
         partiAct ++;
-        boteAct += precioParti;
+        boteAct = safeAdd(boteAct, precioParti);
         Participantes[_participante].balance = precioParti;
         Participantes[_participante].participa = true;
+        emit NewParticipant(loteriaDir, _participante);
         // Control del estado de la loteria tras añadir un participante
         // Si se ha alcanzado el numero maximo de participantes pero no se ha llegado al bote a recaudar
         if (partiAct == maxPart && boteAct < boteRec) {
@@ -105,9 +109,15 @@ contract Loteria {
         estado = Estado.Terminada;
         uint8 randomNum = random();
         ganador = participantes[randomNum];
+        // ChecksEffectsInteractions
+        require(address(this).balance >= precioParti);
         emit LotteryTerminated(loteriaDir, ganador);
         ganador.transfer(premio);
-        creador.transfer(address(this).balance);
+        //creador.transfer(address(this).balance);
+        // ChecksEffectsInteractions
+        uint amount = safeSubtract(boteRec, premio);
+        require(address(this).balance >= amount);
+        creador.transfer(amount);
     }
     
     // Reclamar participacion 
@@ -116,10 +126,10 @@ contract Loteria {
         // Primero chequeo
         require(Participantes[_participante].balance >= precioParti);
         // Efecto positivo anticipado
-        Participantes[_participante].balance -= precioParti;
+        Participantes[_participante].balance = safeSubtract(Participantes[_participante].balance, precioParti);
         // Por ultimo interaccion
         _participante.transfer(precioParti);
-        partiAct --;
+        emit LotteryWithdraw(loteriaDir, _participante);
     }
     
     // Obtener el Estado
@@ -153,4 +163,19 @@ contract Loteria {
      function getLoteria() public view returns ( address _loteriaDir, address payable _creador, address payable _ganador, uint _maxPart, uint _precioParti, uint _boteRec, uint _boteAct) {
         return ( loteriaDir, creador, ganador, maxPart, precioParti, boteRec, boteAct);
     }
+    
+    // SafeMath functions
+    
+    function safeSubtract(uint256 x, uint256 y) pure internal returns(uint256) {
+      uint256 z = x - y;
+      assert((z <= x) && (z <= y));
+      return z;
+    }
+    
+    function safeAdd(uint256 x, uint256 y) pure internal returns(uint256) {
+      uint256 z = x + y;
+      assert((z >= x) && (z >= y));
+      return z;
+    }
+    
 }
